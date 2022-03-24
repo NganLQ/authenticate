@@ -17,8 +17,41 @@ namespace auth.APPLICATION.Services
         }
         public async Task<AuthModels.LoginResponse> Login(string username, string password)
         {
-            
-            throw new NotImplementedException();
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+            {
+                return new AuthModels.LoginResponse
+                {
+                    Success = false,
+                    Errors = "Username and Password cannot be empty."
+                };
+            }
+            // check user
+            var user = await _userRepository.Login(username);
+            if(user == null)
+            {
+                return new AuthModels.LoginResponse
+                {
+                    Success = false,
+                    Errors = $"Cannot find user {username}. Please register befor login."
+                };
+            }
+            var hasher = new PasswordHasher<User>();
+            var result = hasher.VerifyHashedPassword(user, user.Password, password);
+            if(result != PasswordVerificationResult.Success)
+            {
+                return new AuthModels.LoginResponse
+                {
+                    Success = false,
+                    Errors = "Incorrect Password"
+                };
+            }
+            // 
+            return new AuthModels.LoginResponse
+            {
+                Success = true,
+                UserId = user.Id,
+            };
         }
 
         public async Task<AuthModels.RegisterResponse> Register(User user)
@@ -33,6 +66,16 @@ namespace auth.APPLICATION.Services
                 };
             }
             //check user already exists
+            var userExists = await _userRepository.CheckUserExists(user.Username);
+            if(userExists == true)
+            {
+                return new AuthModels.RegisterResponse
+                {
+                    Success = false,
+                    Username = user.Username,
+                    Errors = "Username already exists. Pleas use different usernam."
+                };
+            }
             //
             var hasher = new PasswordHasher<User>();
             user.Password = hasher.HashPassword(user, user.Password);

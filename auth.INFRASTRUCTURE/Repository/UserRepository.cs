@@ -4,36 +4,64 @@ using auth.CORE.Entities;
 using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using MySqlConnector;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Text;
 using System.Threading.Tasks;
+using static auth.APPLICATION.AuthModels;
 
 namespace auth.INFRASTRUCTURE.Repository
 {
     public class UserRepository : IUserRepository
     {
-        private readonly IDbConnection _dbConnection;
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
-        public UserRepository(IDbConnection dbConnection, IConfiguration configuration)
+        public UserRepository(IConfiguration configuration)
         {
-            _dbConnection = dbConnection;
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
         }
-        public Task<AuthModels.LoginResponse> Login(string username, string password)
+
+        public async Task<bool> CheckUserExists(string username)
         {
-            throw new NotFiniteNumberException();
+            var sql = $"SELECT * FROM persons WHERE userName = '{username}'";
+            using (var context = new MySqlConnection(_connectionString))
+            {
+                var result = await context.QueryFirstOrDefaultAsync<User>(sql, username);
+                if(result != null)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        public async Task<User> Login(string username)
+        {
+            var sql = $"SELECT * FROM persons WHERE userName = '{username}'";
+            using (var context = new MySqlConnection(_connectionString))
+            {
+                var result = await context.QueryFirstOrDefaultAsync<User>(sql, username);
+                return new User
+                {
+                    Username = "a",
+                    Password = "fa"
+                };
+            }
         }
 
         public async Task<AuthModels.RegisterResponse> Register(User user)
         {
-            var sql = $"INSERT INTO users(Username, Password, LastName, FirstName) VALUES " +
-                $"('{user.Username}', '{user.Password}', '{user.LastName}', '{user.FirstName}')";
-            using (var context = new SqlConnection(_connectionString))
+            var sql = $"INSERT INTO persons(LastName, FirstName,Username, Password) VALUES " +
+                $"('{user.LastName}', '{user.FirstName}', '{user.Username}', '{user.Password}')";
+            
+            using (var context = new MySqlConnection(_connectionString))
             {
                 var result = await context.ExecuteAsync(sql, user);
                 return new AuthModels.RegisterResponse
