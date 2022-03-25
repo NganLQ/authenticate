@@ -50,8 +50,9 @@ namespace auth.INFRASTRUCTURE.Repository
                 var result = await context.QueryFirstOrDefaultAsync<User>(sql, username);
                 return new User
                 {
-                    Username = "a",
-                    Password = "fa"
+                    Id = result.Id,
+                    Username = result.Username,
+                    Password = result.Password,
                 };
             }
         }

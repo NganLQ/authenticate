@@ -51,6 +51,7 @@ namespace auth.APPLICATION.Services
             {
                 Success = true,
                 UserId = user.Id,
+                Username = user.Username,
             };
         }
 

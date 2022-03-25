@@ -3,6 +3,7 @@ using auth.CORE.Entities;
 using auth.WEBAPI.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -20,28 +21,34 @@ namespace auth.WEBAPI.Controllers
     public class AccountController : ControllerBase
     {
         private readonly IUserService _userService;
-        public AccountController(IUserService userService)
+        private readonly IConfiguration _configuration;
+        public AccountController(IUserService userService, IConfiguration configuration)
         {
             _userService = userService;
+            _configuration = configuration;
         }
-        public async Task<string> SignInWithClaims(string userId, string userName, string role = "User")
+        public async Task<string> SignInWithClaims(string userName, string role = "User")
         {
-            //var userClaims = ,
-
+            var mySecret = _configuration["Jwt:Key"];
+            var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(mySecret));
+            var myIssuer = _configuration["Jwt:Issuer"];
+            var myAudience = _configuration["Jwt:Audience"];
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes("security key");
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new[] {
-                    new Claim("id", userId.ToString()),
-                    new Claim("UserName", userName.ToString()),
-                    new Claim("Role", role.ToString()),
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userName),
+                    new Claim("UserName", userName),
+                    new Claim("Role", role),
                     new Claim(ClaimTypes.Name, userName),
                     new Claim(ClaimTypes.Role, role)
                 }),
-                Expires = DateTime.UtcNow.AddMinutes(10),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature)
+                Expires = DateTime.UtcNow.AddMinutes(100),
+                Issuer = myIssuer,
+                Audience = myAudience,
+                SigningCredentials = new SigningCredentials(mySecurityKey, 
+                    SecurityAlgorithms.HmacSha256Signature)
             };
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
@@ -70,15 +77,16 @@ namespace auth.WEBAPI.Controllers
         }
         
         [HttpPost]
+        [Route("login")]
         public async Task<IActionResult> Login([FromBody]TokenRequestViewModel model)
         {
             var res = await _userService.Login(model.Username, model.Password);
-            string role = res.UserId == 1 ? "Admin" : "User";
-            var token = SignInWithClaims(res.UserId.ToString(), "abc", role);
+            string role = res.Username == "abc" ? "Admin" : "User";
+            var token = SignInWithClaims(res.Username.ToString(), role);
             var result = new
             {
-                userId = res.UserId,
-                token = token,
+                userName = res.Username,
+                token = token.Result,
             };
             return Ok(result);
         }
